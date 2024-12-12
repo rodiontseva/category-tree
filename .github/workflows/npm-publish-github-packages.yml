@@ -1,42 +1,45 @@
-# This workflow will run tests using node and then publish a package to GitHub Packages when a release is created
-# For more information see: https://docs.github.com/en/actions/publishing-packages/publishing-nodejs-packages
+# This is a basic workflow to help you get started with Actions
 
-name: Node.js Package
-
+name: Build & Preview
+# Controls when the workflow will run
 on:
-  release:
-    types: [created]
+  pull_request:
+    branches: [master]
 
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+
+# A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
-  build:
+  # This workflow contains a single job called "build"
+  build_and_preview:
+    # The type of runner that the job will run on
     runs-on: ubuntu-latest
+
+    # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
+      - uses: actions/checkout@v2
+      - name: Use Node.js 15.x
+        uses: actions/setup-node@v2
         with:
-          node-version: 20
-      - run: npm ci
-      - run: npm test
-      - name: Deploy with gh-pages
+          node-version: 15.x
+      - name: Run npm ci, build
         run: |
-          git remote set-url origin https://git:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git
-          npm run deploy -- -u "github-actions-bot <support+actions@github.com>"
+          npm ci
+          npm run test --if-present
+          npm run build --if-present
+      - name: Deploy to GitHub Pages
+        if: success()
+        uses: crazy-max/ghaction-github-pages@v2
+        with:
+          target_branch: gh-pages
+          build_dir: build
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-  publish-gpr:
-    needs: build
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: github-actions-up-and-running/pr-comment@v1.0.1
         with:
-          node-version: 20
-          registry-url: https://npm.pkg.github.com/
-      - run: npm ci
-      - run: npm publish
-        env:
-          NODE_AUTH_TOKEN: ${{secrets.GITHUB_TOKEN}}
+          # GITHUB_TOKEN secret
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          # Message to comment
+          message: Your preview is available at https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}
